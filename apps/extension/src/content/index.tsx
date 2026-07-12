@@ -79,7 +79,13 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
   useEffect(() => {
     window.addEventListener('mousemove', showToolbarTemporary);
-    return () => window.removeEventListener('mousemove', showToolbarTemporary);
+    window.addEventListener('touchstart', showToolbarTemporary);
+    window.addEventListener('click', showToolbarTemporary);
+    return () => {
+      window.removeEventListener('mousemove', showToolbarTemporary);
+      window.removeEventListener('touchstart', showToolbarTemporary);
+      window.removeEventListener('click', showToolbarTemporary);
+    };
   }, [showToolbarTemporary]);
 
   useEffect(() => {
@@ -182,10 +188,12 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
       {/* Floating Toolbar & Load Button */}
       <div 
-        className={`absolute bottom-4 right-4 pointer-events-auto flex items-center gap-2 transition-opacity duration-500 ${isToolbarVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute bottom-4 right-4 pointer-events-auto flex flex-col items-end gap-2 transition-opacity duration-500 ${isToolbarVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}
+        onPointerDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         {isSettingsOpen && (
-          <div id="animevsub-settings-panel" className="absolute bottom-12 right-0 w-[300px] bg-black/60 backdrop-blur-md border border-white/20 p-5 rounded-2xl shadow-2xl text-white pointer-events-auto transition-all">
+          <div id="animevsub-settings-panel" className="w-[90vw] max-w-[320px] bg-black/70 backdrop-blur-xl border border-white/20 p-5 rounded-2xl shadow-2xl text-white pointer-events-auto transition-all mb-2">
             <div className="flex justify-between items-center mb-5">
               <h3 className="font-bold text-sm tracking-wide">✨ Appearance</h3>
               <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white transition-colors">✕</button>
@@ -245,26 +253,26 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
         {isCollapsed ? (
           <button 
             onClick={() => setIsCollapsed(false)}
-            className="bg-black/80 hover:bg-black text-white text-xs px-3 py-1.5 rounded-full border border-gray-700 shadow-md flex items-center gap-1"
+            className="bg-black/80 hover:bg-black text-white text-xs px-4 py-2.5 rounded-full border border-gray-700 shadow-md flex items-center gap-1 active:scale-95 transition-transform"
           >
             <span>+</span> Subtitles
           </button>
         ) : (
-          <>
-            <div className="flex items-center gap-3 bg-black/80 px-3 py-1.5 rounded-full text-[11px] text-white border border-gray-700 shadow-md">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="flex items-center gap-3 bg-black/80 px-4 py-2.5 rounded-full text-[12px] text-white border border-gray-700 shadow-md">
               <span className={`cursor-pointer ${settings.showJapanese ? 'text-blue-400 font-bold' : 'text-gray-400'}`} onClick={() => settings.toggleJapanese()}>JP</span>
               <span className={`cursor-pointer ${settings.showRomaji ? 'text-blue-400 font-bold' : 'text-gray-400'}`} onClick={() => settings.toggleRomaji()}>Romaji</span>
-              <div className="w-[1px] h-3 bg-gray-600"></div>
-              <span className="font-mono cursor-pointer hover:text-white text-gray-300" onClick={() => settings.setSubtitleOffset(settings.subtitleOffset - 500)} title="Lùi 500ms">⏪</span>
-              <span className="font-mono text-gray-300 w-10 text-center">{settings.subtitleOffset > 0 ? '+' : ''}{settings.subtitleOffset}ms</span>
-              <span className="font-mono cursor-pointer hover:text-white text-gray-300" onClick={() => settings.setSubtitleOffset(settings.subtitleOffset + 500)} title="Tiến 500ms">⏩</span>
-              <div className="w-[1px] h-3 bg-gray-600"></div>
-              <span className="cursor-pointer text-gray-400 hover:text-white transition-colors" onClick={() => setIsCollapsed(true)} title="Thu gọn">✕</span>
+              <div className="w-[1px] h-4 bg-gray-600"></div>
+              <span className="font-mono cursor-pointer hover:text-white text-gray-300 text-sm px-1 active:scale-110" onClick={() => settings.setSubtitleOffset(settings.subtitleOffset - 500)} title="Lùi 500ms">⏪</span>
+              <span className="font-mono text-gray-300 min-w-[48px] text-center">{settings.subtitleOffset > 0 ? '+' : ''}{settings.subtitleOffset}ms</span>
+              <span className="font-mono cursor-pointer hover:text-white text-gray-300 text-sm px-1 active:scale-110" onClick={() => settings.setSubtitleOffset(settings.subtitleOffset + 500)} title="Tiến 500ms">⏩</span>
+              <div className="w-[1px] h-4 bg-gray-600"></div>
+              <span className="cursor-pointer text-gray-400 hover:text-white transition-colors px-1 active:scale-110" onClick={() => setIsCollapsed(true)} title="Thu gọn">✕</span>
             </div>
 
             <button 
               onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className={`bg-gray-800 hover:bg-gray-700 text-white text-[11px] font-bold py-1.5 px-3 rounded-full shadow-md border transition-colors ${isSettingsOpen ? 'border-blue-500 text-blue-400' : 'border-gray-600'}`}
+              className={`bg-gray-800 hover:bg-gray-700 text-white text-sm font-bold py-2.5 px-4 rounded-full shadow-md border transition-colors active:scale-95 ${isSettingsOpen ? 'border-blue-500 text-blue-400' : 'border-gray-600'}`}
               title="Settings"
             >
               ⚙️
@@ -272,7 +280,7 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold py-1.5 px-3 rounded-full shadow-md whitespace-nowrap"
+              className="bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-bold py-2.5 px-4 rounded-full shadow-md whitespace-nowrap active:scale-95 transition-transform"
             >
               Load File
             </button>
@@ -287,7 +295,7 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
                 }
               }}
             />
-          </>
+          </div>
         )}
       </div>
     </div>
