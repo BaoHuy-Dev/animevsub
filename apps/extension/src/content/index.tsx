@@ -33,30 +33,19 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
   useEffect(() => {
     settings.loadFromStorage();
-    // Monkey-patch XMLHttpRequest to intercept kuromoji dict loading
-    // because path.join mangles chrome-extension:// URLs.
-    const originalOpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(method: string, url: string | URL, ...args: any[]) {
-      if (typeof url === 'string' && url.startsWith('/dict/')) {
-        url = chrome.runtime.getURL(url);
-      }
-      return originalOpen.apply(this, [method, url, ...args] as any);
-    };
-
     const initTranslator = async () => {
       translatorRef.current = new TranslatorEngine();
       try {
-        await translatorRef.current.init('/dict');
+        await translatorRef.current.init(chrome.runtime.getURL('/dict/'));
       } catch (e) {
         console.warn('Could not init dictionary from extension dir. Using default path.', e);
         try {
-          await translatorRef.current.init('https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict');
+          await translatorRef.current.init('https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/');
         } catch(err) {
           console.error('Failed to init kuroshiro', err);
         }
       }
     };
-
     initTranslator();
 
     const updateLoop = () => {
