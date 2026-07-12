@@ -123,30 +123,51 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
     const type = file.name.endsWith('.srt') ? 'srt' : file.name.endsWith('.vtt') ? 'vtt' : 'ass';
     const parsedCues = engineRef.current.parse(content, type);
     
-    if (translatorRef.current) {
-      for (const cue of parsedCues) {
-        try {
-          if (!translatorRef.current['isKuroshiroReady']) {
-             cue.romaji = 'Kuroshiro not ready yet...';
-          } else {
-             cue.romaji = await translatorRef.current.toRomaji(cue.text);
-          }
-        } catch (err: any) {
-          cue.romaji = `[Error: ${err.message}]`;
-        }
-      }
-    } else {
-      parsedCues.forEach(c => c.romaji = '[Error: Translator missing]');
-    }
-
     setCues(parsedCues);
     setIsProcessing(false);
     console.log(`Loaded ${parsedCues.length} cues`);
 
-    // Cache to unlimited local storage
     const pageUrl = window.location.href.split('?')[0];
     chrome.storage?.local.set({ [`subtitles_${pageUrl}`]: parsedCues });
   };
+
+  // Real-time Just-In-Time Romaji Generation
+  useEffect(() => {
+    if (!activeCue || activeCue.romaji || !translatorRef.current?.isKuroshiroReady) return;
+
+    let isMounted = true;
+    const generateRomaji = async () => {
+      try {
+        const romaji = await translatorRef.current!.toRomaji(activeCue.text);
+        if (!isMounted) return;
+        
+        setCues(prevCues => {
+          const newCues = [...prevCues];
+          const cueIndex = newCues.findIndex(c => c.id === activeCue.id);
+          if (cueIndex !== -1) {
+            newCues[cueIndex] = { ...newCues[cueIndex], romaji };
+            // Background save to cache
+            const pageUrl = window.location.href.split('?')[0];
+            chrome.storage?.local.set({ [`subtitles_${pageUrl}`]: newCues });
+          }
+          return newCues;
+        });
+      } catch (err: any) {
+        if (!isMounted) return;
+        setCues(prevCues => {
+          const newCues = [...prevCues];
+          const cueIndex = newCues.findIndex(c => c.id === activeCue.id);
+          if (cueIndex !== -1) {
+            newCues[cueIndex] = { ...newCues[cueIndex], romaji: `[Err: ${err.message}]` };
+          }
+          return newCues;
+        });
+      }
+    };
+    
+    generateRomaji();
+    return () => { isMounted = false; };
+  }, [activeCue]);
 
   const textStyle: React.CSSProperties = {
     color: settings.fontColor,
