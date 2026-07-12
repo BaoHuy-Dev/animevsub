@@ -1,0 +1,26 @@
+{
+  "name": "animevsub-learning-extension",
+  "version": "1.0.0",
+  "description": "Anime Subtitle Learning Chrome Extension",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -C apps/extension dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "pnpm.onlyBuiltDependencies": [
+    "esbuild"
+  ],
+  "devDependencies": {
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.16",
+    "vite-plugin-node-polyfills": "^0.28.0"
+  },
+  "dependencies": {
+    "zustand": "^4.5.7"
+  }
+}
