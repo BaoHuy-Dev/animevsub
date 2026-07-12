@@ -4,7 +4,65 @@ import tailwindCss from '../popup/index.css?inline';
 import { useSettingsStore } from '../store/settings';
 import { SubtitleEngine } from '@animevsub/subtitle-engine';
 import { SubtitleCue } from '@animevsub/shared';
-import { TranslatorEngine } from '@animevsub/translator';
+
+// Global Sandbox Setup
+const TRANSLATOR_URL = chrome.runtime?.getURL('sandbox.html');
+let sandboxIframe: HTMLIFrameElement | null = null;
+let isSandboxReady = false;
+let sandboxError = '';
+const pendingTranslations = new Map<string, { resolve: (val: string) => void, reject: (err: any) => void }>();
+
+function initSandbox() {
+  if (document.getElementById('animevsub-sandbox')) return;
+  sandboxIframe = document.createElement('iframe');
+  sandboxIframe.id = 'animevsub-sandbox';
+  sandboxIframe.src = TRANSLATOR_URL;
+  sandboxIframe.style.display = 'none';
+  document.body.appendChild(sandboxIframe);
+
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'KUROSHIRO_READY') {
+      isSandboxReady = true;
+      window.dispatchEvent(new Event('sandbox-ready'));
+      console.log('[Content] Kuroshiro sandbox is ready');
+    } else if (event.data?.type === 'KUROSHIRO_ERROR') {
+      sandboxError = event.data.error;
+      console.error('[Content] Kuroshiro sandbox failed', sandboxError);
+    } else if (event.data?.type === 'TRANSLATE_RESULT') {
+      const { id, romaji } = event.data;
+      if (pendingTranslations.has(id)) {
+        pendingTranslations.get(id)!.resolve(romaji);
+        pendingTranslations.delete(id);
+      }
+    } else if (event.data?.type === 'TRANSLATE_ERROR') {
+      const { id, error } = event.data;
+      if (pendingTranslations.has(id)) {
+        pendingTranslations.get(id)!.reject(new Error(error));
+        pendingTranslations.delete(id);
+      }
+    }
+  });
+}
+
+const translateText = async (text: string): Promise<string> => {
+  if (sandboxError) throw new Error(`Sandbox Error: ${sandboxError}`);
+  if (!isSandboxReady || !sandboxIframe?.contentWindow) {
+    throw new Error('Sandbox not ready yet');
+  }
+  
+  const id = Math.random().toString(36).substr(2, 9);
+  return new Promise((resolve, reject) => {
+    pendingTranslations.set(id, { resolve, reject });
+    sandboxIframe!.contentWindow!.postMessage({ type: 'TRANSLATE', id, text }, '*');
+    
+    setTimeout(() => {
+      if (pendingTranslations.has(id)) {
+        pendingTranslations.get(id)!.reject(new Error('Translation timeout'));
+        pendingTranslations.delete(id);
+      }
+    }, 5000);
+  });
+}
 
 const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement }) => {
   const [cues, setCues] = useState<SubtitleCue[]>([]);
@@ -16,9 +74,15 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
   const toolbarTimeoutRef = useRef<number>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const settings = useSettingsStore();
+  const [sandboxReadyState, setSandboxReadyState] = useState(isSandboxReady);
 
   const engineRef = useRef(new SubtitleEngine());
-  const translatorRef = useRef<TranslatorEngine | null>(null);
+
+  useEffect(() => {
+    const handleReady = () => setSandboxReadyState(true);
+    window.addEventListener('sandbox-ready', handleReady);
+    return () => window.removeEventListener('sandbox-ready', handleReady);
+  }, []);
 
   // Load Subtitles from storage for current URL
   useEffect(() => {
@@ -33,20 +97,6 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
   useEffect(() => {
     settings.loadFromStorage();
-    const initTranslator = async () => {
-      translatorRef.current = new TranslatorEngine();
-      try {
-        await translatorRef.current.init(chrome.runtime.getURL('/dict/'));
-      } catch (e) {
-        console.warn('Could not init dictionary from extension dir. Using default path.', e);
-        try {
-          await translatorRef.current.init('https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/');
-        } catch(err) {
-          console.error('Failed to init kuroshiro', err);
-        }
-      }
-    };
-    initTranslator();
 
     const updateLoop = () => {
       const time = videoElement.currentTime + (useSettingsStore.getState().subtitleOffset / 1000);
@@ -133,12 +183,12 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
   // Real-time Just-In-Time Romaji Generation
   useEffect(() => {
-    if (!activeCue || activeCue.romaji || !translatorRef.current?.isKuroshiroReady) return;
+    if (!activeCue || activeCue.romaji || !sandboxReadyState) return;
 
     let isMounted = true;
     const generateRomaji = async () => {
       try {
-        const romaji = await translatorRef.current!.toRomaji(activeCue.text);
+        const romaji = await translateText(activeCue.text);
         if (!isMounted) return;
         
         setCues(prevCues => {
@@ -153,6 +203,7 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
           return newCues;
         });
       } catch (err: any) {
+        if (err.message === 'Sandbox not ready yet') return;
         if (!isMounted) return;
         setCues(prevCues => {
           const newCues = [...prevCues];
@@ -312,4 +363,5 @@ const observer = new MutationObserver((mutations) => {
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
+initSandbox();
 console.log('Anime Subtitle Learning Content Script loaded.');
