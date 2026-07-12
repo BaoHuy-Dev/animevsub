@@ -20,8 +20,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src'),
-      'kuromoji': 'kuromoji/build/kuromoji.js'
+      '@': resolve(__dirname, './src')
     },
   },
 });

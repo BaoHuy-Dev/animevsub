@@ -4,8 +4,48 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Anime Subtitle Sandbox</title>
+    <!-- Load Kuroshiro and Kuromoji from jsdelivr CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
   </head>
   <body>
-    <script type="module" src="/src/sandbox.tsx"></script>
+    <script>
+      console.log('[Sandbox] Initializing from CDN...');
+      let kuroshiro = null;
+
+      (async () => {
+        try {
+          // Initialize Kuroshiro
+          kuroshiro = new Kuroshiro();
+          
+          // Initialize KuromojiAnalyzer with dictionary from CDN
+          // This avoids ANY local path or Vite server conflicts
+          const dictPath = 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/';
+          const analyzer = new KuromojiAnalyzer({ dictPath: dictPath });
+          
+          await kuroshiro.init(analyzer);
+          
+          console.log('[Sandbox] Kuroshiro initialized successfully from CDN.');
+          window.parent.postMessage({ type: 'KUROSHIRO_READY' }, '*');
+        } catch (e) {
+          console.error('[Sandbox] Failed to initialize Kuroshiro', e);
+          window.parent.postMessage({ type: 'KUROSHIRO_ERROR', error: e.message || String(e) }, '*');
+        }
+      })();
+
+      window.addEventListener('message', async (event) => {
+        if (event.data && event.data.type === 'TRANSLATE') {
+          const { id, text } = event.data;
+          try {
+            if (!kuroshiro) throw new Error("Kuroshiro not initialized");
+            const romaji = await kuroshiro.convert(text, { to: 'romaji', mode: 'spaced' });
+            window.parent.postMessage({ type: 'TRANSLATE_RESULT', id, romaji }, '*');
+          } catch (e) {
+            window.parent.postMessage({ type: 'TRANSLATE_ERROR', id, error: e.message || String(e) }, '*');
+          }
+        }
+      });
+    </script>
   </body>
 </html>
