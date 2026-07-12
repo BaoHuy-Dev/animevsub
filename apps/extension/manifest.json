@@ -29,7 +29,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["dict/*", "sandbox.html"],
+      "resources": ["dict/*", "lib/*", "sandbox.html"],
       "matches": ["<all_urls>"]
     }
   ],
