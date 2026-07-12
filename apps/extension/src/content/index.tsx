@@ -11,6 +11,12 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
   const [activeCue, setActiveCue] = useState<SubtitleCue | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isToolbarVisible, setIsToolbarVisible] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const isSettingsOpenRef = useRef(false);
+  
+  useEffect(() => {
+    isSettingsOpenRef.current = isSettingsOpen;
+  }, [isSettingsOpen]);
   
   const rafRef = useRef<number>();
   const toolbarTimeoutRef = useRef<number>();
@@ -65,7 +71,9 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
     setIsToolbarVisible(true);
     if (toolbarTimeoutRef.current) clearTimeout(toolbarTimeoutRef.current);
     toolbarTimeoutRef.current = window.setTimeout(() => {
-      setIsToolbarVisible(false);
+      if (!isSettingsOpenRef.current) {
+        setIsToolbarVisible(false);
+      }
     }, 3000);
   }, []);
 
@@ -174,8 +182,66 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
 
       {/* Floating Toolbar & Load Button */}
       <div 
-        className={`absolute bottom-4 right-4 pointer-events-auto flex items-center gap-2 transition-opacity duration-500 ${isToolbarVisible ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute bottom-4 right-4 pointer-events-auto flex items-center gap-2 transition-opacity duration-500 ${isToolbarVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}
       >
+        {isSettingsOpen && (
+          <div id="animevsub-settings-panel" className="absolute bottom-12 right-0 w-[300px] bg-black/60 backdrop-blur-md border border-white/20 p-5 rounded-2xl shadow-2xl text-white pointer-events-auto transition-all">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="font-bold text-sm tracking-wide">✨ Appearance</h3>
+              <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white transition-colors">✕</button>
+            </div>
+            
+            <div className="space-y-5">
+              {/* Vertical Position */}
+              <div>
+                <label className="flex justify-between text-xs text-gray-300 mb-2 font-medium">
+                  <span>Vertical Position</span>
+                  <span>{settings.bottomOffset}px</span>
+                </label>
+                <input type="range" min="0" max="800" value={settings.bottomOffset} onChange={(e) => settings.setStyle('bottomOffset', parseInt(e.target.value))} className="w-full accent-blue-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+              </div>
+
+              {/* Font Size */}
+              <div>
+                <label className="flex justify-between text-xs text-gray-300 mb-2 font-medium">
+                  <span>Font Size</span>
+                  <span>{settings.fontSize}px</span>
+                </label>
+                <input type="range" min="16" max="96" value={settings.fontSize} onChange={(e) => settings.setStyle('fontSize', parseInt(e.target.value))} className="w-full accent-blue-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+              </div>
+
+              {/* Colors */}
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-300 mb-2 font-medium">Text Color</label>
+                  <div className="flex gap-2">
+                    {['#ffffff', '#fbbf24', '#34d399', '#60a5fa'].map(c => (
+                      <button key={c} onClick={() => settings.setStyle('fontColor', c)} className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${settings.fontColor === c ? 'border-white scale-110 shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-300 mb-2 font-medium">Outline</label>
+                  <div className="flex gap-2">
+                    {['#000000', '#1e3a8a', '#7f1d1d', '#14532d'].map(c => (
+                      <button key={c} onClick={() => settings.setStyle('outlineColor', c)} className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${settings.outlineColor === c ? 'border-white scale-110 shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'border-gray-500'}`} style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Outline Width */}
+              <div>
+                <label className="flex justify-between text-xs text-gray-300 mb-2 font-medium">
+                  <span>Outline Width</span>
+                  <span>{settings.outlineWidth}px</span>
+                </label>
+                <input type="range" min="0" max="15" value={settings.outlineWidth} onChange={(e) => settings.setStyle('outlineWidth', parseInt(e.target.value))} className="w-full accent-blue-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {isCollapsed ? (
           <button 
             onClick={() => setIsCollapsed(false)}
@@ -193,8 +259,16 @@ const OverlayApp: React.FC<{ videoElement: HTMLVideoElement }> = ({ videoElement
               <span className="font-mono text-gray-300 w-10 text-center">{settings.subtitleOffset > 0 ? '+' : ''}{settings.subtitleOffset}ms</span>
               <span className="font-mono cursor-pointer hover:text-white text-gray-300" onClick={() => settings.setSubtitleOffset(settings.subtitleOffset + 500)} title="Tiến 500ms">⏩</span>
               <div className="w-[1px] h-3 bg-gray-600"></div>
-              <span className="cursor-pointer text-gray-400 hover:text-white" onClick={() => setIsCollapsed(true)} title="Thu gọn">✖</span>
+              <span className="cursor-pointer text-gray-400 hover:text-white transition-colors" onClick={() => setIsCollapsed(true)} title="Thu gọn">✕</span>
             </div>
+
+            <button 
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className={`bg-gray-800 hover:bg-gray-700 text-white text-[11px] font-bold py-1.5 px-3 rounded-full shadow-md border transition-colors ${isSettingsOpen ? 'border-blue-500 text-blue-400' : 'border-gray-600'}`}
+              title="Settings"
+            >
+              ⚙️
+            </button>
 
             <button 
               onClick={() => fileInputRef.current?.click()}

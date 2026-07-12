@@ -7,7 +7,9 @@
     "dev": "pnpm -C apps/extension dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "romaji": "tsx scripts/generate-romaji.ts",
+    "romaji-batch": "tsx scripts/generate-romaji.ts \"G:\\NgonNgu\\Anime\\Hajume no Ippo\""
   },
   "keywords": [],
   "author": "",
